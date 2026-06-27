@@ -58,7 +58,15 @@ async fn pty_create(
     cmd.env("COLORTERM", "truecolor");
     cmd.env("LANG", "en_US.UTF-8");
 
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/".to_string());
+    let home = std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .unwrap_or_else(|_| {
+            #[cfg(target_os = "windows")]
+            { std::env::var("HOMEDRIVE").unwrap_or_else(|_| "C:".to_string())
+                + &std::env::var("HOMEPATH").unwrap_or_else(|_| "\\".to_string()) }
+            #[cfg(not(target_os = "windows"))]
+            { "/".to_string() }
+        });
     cmd.cwd(&home);
     cmd.env("HOME", &home);
 
@@ -290,8 +298,22 @@ async fn open_settings(app: tauri::AppHandle) -> Result<(), String> {
 // ── MCP binary path ───────────────────────────────────────────────────────────
 
 #[tauri::command]
-async fn get_mcp_path(app: tauri::AppHandle) -> String {
-    let fname = {
+async fn get_mcp_path(_app: tauri::AppHandle) -> String {
+    // Production name — Tauri strips the triple suffix when bundling externalBin.
+    let prod_name = if cfg!(target_os = "windows") { "mcp-server.exe" } else { "mcp-server" };
+
+    // Production: binary lands next to the main executable.
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            let p = dir.join(prod_name);
+            if p.exists() {
+                return p.to_string_lossy().to_string();
+            }
+        }
+    }
+
+    // Dev mode: triple-named binary in src-tauri/binaries/ (3 levels up from exe).
+    let dev_name = {
         #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
         { "mcp-server-aarch64-apple-darwin" }
         #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
@@ -309,17 +331,10 @@ async fn get_mcp_path(app: tauri::AppHandle) -> String {
         { "mcp-server" }
     };
 
-    if let Ok(dir) = app.path().resource_dir() {
-        let p = dir.join(fname);
-        if p.exists() {
-            return p.to_string_lossy().to_string();
-        }
-    }
-
     if let Ok(exe) = std::env::current_exe() {
         let candidate = exe
             .parent().and_then(|p| p.parent()).and_then(|p| p.parent())
-            .map(|root| root.join("src-tauri/binaries").join(fname));
+            .map(|root| root.join("src-tauri/binaries").join(dev_name));
         if let Some(p) = candidate {
             if p.exists() {
                 return p.to_string_lossy().to_string();
@@ -327,7 +342,7 @@ async fn get_mcp_path(app: tauri::AppHandle) -> String {
         }
     }
 
-    fname.to_string()
+    prod_name.to_string()
 }
 
 // ── Write MCP config files (one-click setup) ──────────────────────────────────
@@ -337,7 +352,9 @@ async fn write_mcp_config(path: String, content: String) -> Result<(), String> {
     use std::path::Path;
 
     let expanded = if path.starts_with('~') {
-        let home = std::env::var("HOME").unwrap_or_default();
+        let home = std::env::var("HOME")
+            .or_else(|_| std::env::var("USERPROFILE"))
+            .unwrap_or_default();
         path.replacen('~', &home, 1)
     } else {
         path
@@ -353,7 +370,9 @@ async fn write_mcp_config(path: String, content: String) -> Result<(), String> {
 #[tauri::command]
 async fn read_file(path: String) -> Result<String, String> {
     let expanded = if path.starts_with('~') {
-        let home = std::env::var("HOME").unwrap_or_default();
+        let home = std::env::var("HOME")
+            .or_else(|_| std::env::var("USERPROFILE"))
+            .unwrap_or_default();
         path.replacen('~', &home, 1)
     } else {
         path
@@ -370,18 +389,21 @@ fn build_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::
 
     let modifier = "CmdOrCtrl";
 
-    let app_menu = SubmenuBuilder::new(app, "Sonar")
-        .item(&PredefinedMenuItem::about(app, Some("About Sonar"), None)?)
-        .separator()
-        .item(&MenuItemBuilder::with_id("settings", "Settings…")
-            .accelerator(&format!("{modifier}+,"))
-            .build(app)?)
-        .separator()
-        .item(&PredefinedMenuItem::hide(app, None)?)
-        .item(&PredefinedMenuItem::hide_others(app, None)?)
-        .separator()
-        .item(&PredefinedMenuItem::quit(app, None)?)
-        .build()?;
+    let app_menu = {
+        let b = SubmenuBuilder::new(app, "Sonar")
+            .item(&PredefinedMenuItem::about(app, Some("About Sonar"), None)?)
+            .separator()
+            .item(&MenuItemBuilder::with_id("settings", "Settings…")
+                .accelerator(&format!("{modifier}+,"))
+                .build(app)?)
+            .separator();
+        #[cfg(target_os = "macos")]
+        let b = b
+            .item(&PredefinedMenuItem::hide(app, None)?)
+            .item(&PredefinedMenuItem::hide_others(app, None)?)
+            .separator();
+        b.item(&PredefinedMenuItem::quit(app, None)?).build()?
+    };
 
     let file_menu = SubmenuBuilder::new(app, "File")
         .item(&MenuItemBuilder::with_id("new_tab", "New Tab")
@@ -408,26 +430,29 @@ fn build_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::
         .item(&PredefinedMenuItem::select_all(app, None)?)
         .build()?;
 
-    let view_menu = SubmenuBuilder::new(app, "View")
-        .item(&MenuItemBuilder::with_id("toggle_sidebar", "Toggle Sidebar")
-            .accelerator(&format!("{modifier}+B"))
-            .build(app)?)
-        .item(&MenuItemBuilder::with_id("reload_page", "Reload Page")
-            .accelerator(&format!("{modifier}+R"))
-            .build(app)?)
-        .item(&MenuItemBuilder::with_id("hard_reload", "Hard Reload")
-            .accelerator(&format!("{modifier}+Shift+R"))
-            .build(app)?)
-        .separator()
-        .item(&MenuItemBuilder::with_id("toggle_console", "Developer Console")
-            .accelerator(&format!("{modifier}+Option+J"))
-            .build(app)?)
-        .item(&MenuItemBuilder::with_id("inspect_sonar", "Inspect Sonar")
-            .accelerator(&format!("{modifier}+Option+I"))
-            .build(app)?)
-        .separator()
-        .item(&PredefinedMenuItem::fullscreen(app, None)?)
-        .build()?;
+    let view_menu = {
+        let b = SubmenuBuilder::new(app, "View")
+            .item(&MenuItemBuilder::with_id("toggle_sidebar", "Toggle Sidebar")
+                .accelerator(&format!("{modifier}+B"))
+                .build(app)?)
+            .item(&MenuItemBuilder::with_id("reload_page", "Reload Page")
+                .accelerator(&format!("{modifier}+R"))
+                .build(app)?)
+            .item(&MenuItemBuilder::with_id("hard_reload", "Hard Reload")
+                .accelerator(&format!("{modifier}+Shift+R"))
+                .build(app)?)
+            .separator()
+            .item(&MenuItemBuilder::with_id("toggle_console", "Developer Console")
+                .accelerator(&format!("{modifier}+Option+J"))
+                .build(app)?)
+            .item(&MenuItemBuilder::with_id("inspect_sonar", "Inspect Sonar")
+                .accelerator(&format!("{modifier}+Option+I"))
+                .build(app)?)
+            .separator();
+        #[cfg(target_os = "macos")]
+        let b = b.item(&PredefinedMenuItem::fullscreen(app, None)?);
+        b.build()?
+    };
 
     let nav_menu = SubmenuBuilder::new(app, "Navigate")
         .item(&MenuItemBuilder::with_id("nav_back", "Back")
@@ -463,12 +488,16 @@ fn build_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::
             .build(app)?)
         .build()?;
 
-    let window_menu = SubmenuBuilder::new(app, "Window")
-        .item(&PredefinedMenuItem::minimize(app, None)?)
-        .item(&PredefinedMenuItem::maximize(app, None)?)
-        .separator()
-        .item(&PredefinedMenuItem::bring_all_to_front(app, None)?)
-        .build()?;
+    let window_menu = {
+        let b = SubmenuBuilder::new(app, "Window")
+            .item(&PredefinedMenuItem::minimize(app, None)?)
+            .item(&PredefinedMenuItem::maximize(app, None)?);
+        #[cfg(target_os = "macos")]
+        let b = b
+            .separator()
+            .item(&PredefinedMenuItem::bring_all_to_front(app, None)?);
+        b.build()?
+    };
 
     MenuBuilder::new(app)
         .item(&app_menu)

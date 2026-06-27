@@ -26,8 +26,11 @@ type PortInfo struct {
 }
 
 // ScanPorts returns all listening TCP ports in [minPort, maxPort].
-// Strategy: lsof (macOS/Linux) → /proc/net/tcp (Linux) → dial fallback.
+// Strategy: Windows netstat → lsof (macOS/Linux) → /proc/net/tcp (Linux) → dial fallback.
 func ScanPorts(minPort, maxPort int) ([]PortInfo, error) {
+	if runtime.GOOS == "windows" {
+		return netstatScan(minPort, maxPort)
+	}
 	if _, err := exec.LookPath("lsof"); err == nil {
 		return lsofScan(minPort, maxPort)
 	}
@@ -202,4 +205,82 @@ func dialScan(minPort, maxPort int) ([]PortInfo, error) {
 		})
 	}
 	return ports, nil
+}
+
+// netstatScan uses `netstat -ano -p TCP` on Windows to enumerate listening ports with PIDs.
+func netstatScan(minPort, maxPort int) ([]PortInfo, error) {
+	out, err := exec.Command("netstat", "-ano", "-p", "TCP").Output()
+	if err != nil && len(out) == 0 {
+		return dialScan(minPort, maxPort)
+	}
+
+	pidNames := windowsPidNames()
+	now := time.Now().UTC()
+	seen := make(map[string]struct{})
+	var ports []PortInfo
+
+	sc := bufio.NewScanner(bytes.NewReader(out))
+	for sc.Scan() {
+		fields := strings.Fields(sc.Text())
+		// TCP  0.0.0.0:3000  0.0.0.0:0  LISTENING  1234
+		if len(fields) < 5 || strings.ToUpper(fields[3]) != "LISTENING" {
+			continue
+		}
+		local := fields[1]
+		lastColon := strings.LastIndex(local, ":")
+		if lastColon == -1 {
+			continue
+		}
+		port, err := strconv.Atoi(local[lastColon+1:])
+		if err != nil || port < minPort || port > maxPort || port == selfPort {
+			continue
+		}
+		pid, err := strconv.Atoi(fields[4])
+		if err != nil {
+			continue
+		}
+		key := fmt.Sprintf("%d:%d", pid, port)
+		if _, dup := seen[key]; dup {
+			continue
+		}
+		seen[key] = struct{}{}
+		name := pidNames[pid]
+		if name == "" {
+			name = "unknown"
+		}
+		ports = append(ports, PortInfo{
+			Port: port, PID: pid, ProcessName: name,
+			Protocol: "tcp", Timestamp: now,
+		})
+	}
+	return ports, nil
+}
+
+// windowsPidNames runs tasklist once and returns a map of PID → process name.
+func windowsPidNames() map[int]string {
+	out, err := exec.Command("tasklist", "/FO", "CSV", "/NH").Output()
+	if err != nil {
+		return nil
+	}
+	m := make(map[int]string)
+	sc := bufio.NewScanner(bytes.NewReader(out))
+	for sc.Scan() {
+		line := sc.Text()
+		// "node.exe","1234","Console","1","29,828 K"
+		parts := strings.SplitN(line, ",", 3)
+		if len(parts) < 2 {
+			continue
+		}
+		name := strings.Trim(parts[0], `"`)
+		pidStr := strings.Trim(parts[1], `"`)
+		pid, err := strconv.Atoi(pidStr)
+		if err != nil {
+			continue
+		}
+		if strings.HasSuffix(strings.ToLower(name), ".exe") {
+			name = name[:len(name)-4]
+		}
+		m[pid] = name
+	}
+	return m
 }

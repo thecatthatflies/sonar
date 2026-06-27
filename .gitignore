@@ -25,8 +25,14 @@ coverage/
 *.swp
 *.swo
 
-# Build
-pkg/
+# Build outputs (uploaded to GitHub Releases, not committed)
+pkg/macos/*.dmg
+pkg/macos/*.zip
+pkg/linux/*.AppImage
+pkg/linux/*.deb
+pkg/linux/*.rpm
+pkg/windows/*.exe
+pkg/windows/*.msi
 
 # System
 .DS_Store

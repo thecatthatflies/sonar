@@ -1,0 +1,249 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version bump type"
+        required: false
+        default: "auto"
+        type: choice
+        options: [auto, major, minor, patch]
+
+# Skip if this push is itself a release or README update commit
+jobs:
+  prepare:
+    if: |
+      !startsWith(github.event.head_commit.message, 'chore: release') &&
+      !startsWith(github.event.head_commit.message, 'docs: update README for v')
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+      tag: ${{ steps.bump.outputs.tag }}
+      should_release: ${{ steps.bump.outputs.should_release }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git identity
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+
+      - name: Determine version bump
+        id: bump
+        env:
+          BUMP_TYPE: ${{ inputs.bump || 'auto' }}
+        run: bash .github/scripts/bump-version.sh
+
+      - name: Generate release notes
+        if: steps.bump.outputs.should_release == 'true'
+        env:
+          NAVY_API_KEY: ${{ secrets.NAVY_API_KEY }}
+        run: bash .github/scripts/gen-notes.sh
+
+      - name: Commit version bump and tag
+        if: steps.bump.outputs.should_release == 'true'
+        run: |
+          git add src-tauri/Cargo.toml src-tauri/tauri.conf.json src-tauri/Cargo.lock
+          git commit -m "chore: release v${{ steps.bump.outputs.version }}"
+          git tag "v${{ steps.bump.outputs.version }}"
+          git push origin main --follow-tags
+
+      - name: Upload release notes artifact
+        if: steps.bump.outputs.should_release == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: /tmp/release-notes.md
+          retention-days: 1
+
+  build-mac:
+    needs: prepare
+    if: needs.prepare.outputs.should_release == 'true'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Build
+        run: bash pkg/build.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-artifacts
+          path: |
+            pkg/macos/*.dmg
+            pkg/macos/*.zip
+          retention-days: 1
+
+  build-windows:
+    needs: prepare
+    if: needs.prepare.outputs.should_release == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Build
+        run: bash pkg/build.sh
+        shell: bash
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-artifacts
+          path: |
+            pkg/windows/*.exe
+            pkg/windows/*.msi
+          retention-days: 1
+
+  build-linux:
+    needs: prepare
+    if: needs.prepare.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Install Linux system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Build
+        run: bash pkg/build.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-artifacts
+          path: |
+            pkg/linux/*.AppImage
+            pkg/linux/*.deb
+            pkg/linux/*.rpm
+          retention-days: 1
+
+  release:
+    needs: [prepare, build-mac, build-windows, build-linux]
+    if: needs.prepare.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          NOTES=$(cat artifacts/release-notes/release-notes.md)
+          gh release create "v${VERSION}" \
+            --title "Sonar v${VERSION}" \
+            --notes "$NOTES" \
+            artifacts/macos-artifacts/*.dmg \
+            artifacts/macos-artifacts/*.zip \
+            artifacts/windows-artifacts/*.exe \
+            artifacts/windows-artifacts/*.msi \
+            artifacts/linux-artifacts/*.AppImage \
+            artifacts/linux-artifacts/*.deb \
+            artifacts/linux-artifacts/*.rpm
+
+  update-readme:
+    needs: [prepare, release]
+    if: needs.prepare.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git identity
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+
+      - name: Pull latest main
+        run: git pull origin main
+
+      - name: Download release notes
+        uses: actions/download-artifact@v4
+        with:
+          name: release-notes
+          path: /tmp/
+
+      - name: Update README
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: python3 .github/scripts/update-readme.py "$VERSION" /tmp/release-notes.md
+
+      - name: Commit and push
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          git add README.md
+          git diff --staged --quiet || git commit -m "docs: update README for v${VERSION}"
+          git push origin main

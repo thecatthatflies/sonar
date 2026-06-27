@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"sonar/internal/scanner"
@@ -126,26 +125,26 @@ func handleKill(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Port == 0 {
 		w.WriteHeader(400)
-		json.NewEncoder(w).Encode(map[string]string{"error": "body must be {\"port\": N}"})
+		json.NewEncoder(w).Encode(map[string]string{"error": `body must be {"port": N}`})
 		return
 	}
 
-	// Resolve PIDs via lsof
-	out, err := exec.Command("lsof", "-t", "-i", fmt.Sprintf("tcp:%d", body.Port)).Output()
-	if err != nil || strings.TrimSpace(string(out)) == "" {
+	ports, _ := scanner.ScanPorts(body.Port, body.Port)
+	if len(ports) == 0 {
 		w.WriteHeader(404)
 		json.NewEncoder(w).Encode(map[string]any{"success": false, "message": fmt.Sprintf("no process on port %d", body.Port)})
 		return
 	}
 
 	var killed, failed []int
-	for _, s := range strings.Fields(string(out)) {
-		pid, err := strconv.Atoi(s)
-		if err != nil { continue }
-		if err := syscall.Kill(pid, syscall.SIGTERM); err != nil {
-			failed = append(failed, pid)
+	for _, p := range ports {
+		if p.PID == 0 {
+			continue
+		}
+		if err := killProcess(p.PID); err != nil {
+			failed = append(failed, p.PID)
 		} else {
-			killed = append(killed, pid)
+			killed = append(killed, p.PID)
 		}
 	}
 
