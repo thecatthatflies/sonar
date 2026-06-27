@@ -17,7 +17,7 @@ export default function Contact() {
         <div className="prose-inner">
           <div className="contact-grid">
             <a
-              href="https://github.com/ai-hyyan/sonar/issues/new?template=bug_report.md"
+              href="https://github.com/thecatthatflies/sonar/issues/new?template=bug_report.md"
               className="contact-card"
               target="_blank"
               rel="noopener noreferrer"
@@ -43,7 +43,7 @@ export default function Contact() {
             </a>
 
             <a
-              href="https://github.com/ai-hyyan/sonar/discussions/new?category=ideas"
+              href="https://github.com/thecatthatflies/sonar/discussions/new?category=ideas"
               className="contact-card"
               target="_blank"
               rel="noopener noreferrer"
@@ -67,7 +67,7 @@ export default function Contact() {
             </a>
 
             <a
-              href="https://github.com/ai-hyyan/sonar"
+              href="https://github.com/thecatthatflies/sonar"
               className="contact-card"
               target="_blank"
               rel="noopener noreferrer"

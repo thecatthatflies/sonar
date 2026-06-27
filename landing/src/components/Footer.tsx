@@ -13,7 +13,7 @@ export default function Footer() {
           <Link to="/terms" className="footer-link">Terms</Link>
           <Link to="/contact" className="footer-link">Contact</Link>
           <a
-            href="https://github.com/ai-hyyan/sonar"
+            href="https://github.com/thecatthatflies/sonar"
             className="footer-link"
             target="_blank"
             rel="noopener noreferrer"

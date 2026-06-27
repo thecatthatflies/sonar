@@ -20,7 +20,7 @@ export default function Nav() {
         <div className="nav-links">
           <Link to="/contact" className="nav-link">Contact</Link>
           <a
-            href="https://github.com/ai-hyyan/sonar"
+            href="https://github.com/thecatthatflies/sonar"
             className="nav-gh"
             aria-label="GitHub"
             target="_blank"

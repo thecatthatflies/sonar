@@ -1,3 +1,10 @@
+---
+title: Address Bar
+slug: address-bar
+order: 2
+description: Navigate local ports by number, hostname, URL, or search query.
+---
+
 # Address Bar
 
 Sonar's address bar is the fastest way to navigate local services. It understands port numbers, hostnames, full URLs, and plain search queries — no prefix required.

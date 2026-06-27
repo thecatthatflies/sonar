@@ -1,3 +1,10 @@
+---
+title: MCP Server
+slug: mcp
+order: 5
+description: Connect AI agents to your local services with Sonar's bundled MCP server.
+---
+
 # MCP Server
 
 Sonar ships a bundled MCP (Model Context Protocol) server that gives AI assistants direct access to your local dev environment's port state.

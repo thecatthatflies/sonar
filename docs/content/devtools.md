@@ -1,3 +1,10 @@
+---
+title: DevTools
+slug: devtools
+order: 4
+description: Inspect pages, view logs, and debug with Sonar's built-in DevTools.
+---
+
 # DevTools
 
 Sonar ships two layers of DevTools: a native WebKit inspector for pages you browse, and a built-in console for Sonar's own internals.

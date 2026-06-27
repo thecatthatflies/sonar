@@ -1,3 +1,10 @@
+---
+title: Port Filter
+slug: port-filter
+order: 3
+description: How Sonar auto-hides system noise and surfaces only your dev services.
+---
+
 # Port Filter
 
 Sonar automatically distinguishes dev services from system noise using a three-priority filter system.

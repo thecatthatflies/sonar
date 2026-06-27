@@ -43,10 +43,10 @@ export default function Privacy() {
           <div className="prose-section">
             <h2>Website analytics</h2>
             <p>
-              This website (sonar.aiyan.tech) may use privacy-respecting
-              analytics to understand aggregate traffic patterns — page views
-              and referral sources only. No personal identifiers, no cross-site
-              tracking, no cookies for advertising purposes.
+              This website may use privacy-respecting analytics to understand
+              aggregate traffic patterns — page views and referral sources only.
+              No personal identifiers, no cross-site tracking, no cookies for
+              advertising purposes.
             </p>
           </div>
 
@@ -82,8 +82,7 @@ export default function Privacy() {
           <div className="prose-section">
             <h2>Contact</h2>
             <p>
-              Questions about privacy?{" "}
-              <a href="mailto:hello@sonar.aiyan.tech">hello@sonar.aiyan.tech</a>
+              Questions about privacy? <a href="https://github.com/thecatthatflies/sonar/issues" target="_blank" rel="noopener noreferrer">Open a GitHub issue</a>
             </p>
           </div>
         </div>

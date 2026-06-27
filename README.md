@@ -1,50 +1,127 @@
 # Sonar
 
-The browser built for developers.
+**The developer browser built for local services.**
 
-![Sonar Browser View](https://sonar.aiyan.tech/screenshots/app-browser.png)
+Sonar is a cross-platform desktop app that auto-discovers every port and service running on your machine, provides an embedded browser, native terminal, network inspector, and a full MCP server for AI agents — all in one window.
 
----
-
-## What is Sonar?
-
-Sonar is a cross-platform desktop app that replaces the browser tab you always have open. It auto-discovers every service and port running on your machine, shows them in a sidebar, and lets you inspect and manage your project with ease.
-
-It features a port manager, terminal emulator built in, MCP with your favourite agents, a full browser, and built in DevTools and logging.
+![Sonar](https://raw.githubusercontent.com/thecatthatflies/sonar/main/landing/dist/screenshots/app-browser2.png)
 
 ---
 
 ## Features
 
-### Ports
-Sonar's backend detects when new ports arrive and when other ones disappear, and displays the most relevant ones in a beautiful collapsible menu to the side. It can also detect ports that aren't important; apps running on your computer that you aren't working with are filtered out.
-
-You can right-click any port card (or click `⋮`) for a context menu:
-- **Open in new tab**: opens in browser tab
-- **Copy URL**: copies `http://localhost:PORT`
-- **Kill port**: SIGTERM with confirmation dialog
-- **Show details**: PID, user, elapsed time, RSS memory, open FDs, full command line
-- **Hide**: hides process from sidebar
-
-### Browser
-The browser inside Sonar allows you to go anywhere faster. You have the basics from browsers like Chrome and Firefox. Normal web browsing, searching, basic features. But with Sonar, if you type 3000, it'll detect that you're trying to connect to a port, and automatically open localhost:3000. same for 5173, 8080, and any other port.
-
-### Built-in Terminal
-Sonar features a native, modern terminal right inside the app. If you're fixing your application, switch to the terminal and do your thing, all without leaving.
-
-### DevTools
-Access via `⋮` menu (top right):
-
-- **Inspect page** — native WebKit inspector (Safari Web Inspector) for the active tab
-- **Console** — toggles Sonar's log drawer
-- **Inspect Sonar** — inspector for Sonar's own React shell
-- **Reload Sonar** — full app reload
-
-With Sonar, you can open a native DevTools menu right inside, just like any other browser. But Sonar even allows you to save logs to the app, and view them for future use.
-
-### MCP Server
-If you're building your application with an agent, don't worry! Sonar includes a built in MCP server that connects your agent directly to your application. Check out everything that your agent can use Sonar for and installation instructions at [sonardocs.aiyan.tech/mcp.md](sonardocs.aiyan.tech/mcp.md).
+| Feature | Description |
+|---|---|
+| **Port monitor** | Real-time discovery of every service on ports 3000–9000. Process names, PIDs, protocols, memory — at a glance. |
+| **Built-in browser** | Click any port to open it in a full browser tab. Type `3000` in the address bar to open `localhost:3000`. |
+| **Integrated terminal** | A full terminal lives in the same window. Run commands, restart services, tail logs — no context switch. |
+| **DevTools** | Native WebKit inspector for any tab you browse. Save and replay console log sessions. |
+| **MCP server** | A bundled MCP server gives AI agents (Claude, Cursor, etc.) direct access to your local service state. |
+| **Smart port filter** | Auto-hides system noise (Slack, Spotify, browsers) while surfacing your dev services. |
+| **Local-first** | No account, no telemetry, no cloud sync. All data stays on your machine. |
 
 ---
 
-Have fun with Sonar! Download at [sonar.aiyan.tech](sonar.aiyan.tech).
+## Download
+
+**[→ Download the latest release](https://github.com/thecatthatflies/sonar/releases/latest)**
+
+| Platform | Architecture | Link |
+|---|---|---|
+| macOS | Apple Silicon | [Sonar_aarch64.dmg](https://github.com/thecatthatflies/sonar/releases/latest/download/Sonar_aarch64.dmg) |
+| macOS | Intel | [Sonar_x64.dmg](https://github.com/thecatthatflies/sonar/releases/latest/download/Sonar_x64.dmg) |
+| Linux | x86_64 | [Sonar_x86_64.AppImage](https://github.com/thecatthatflies/sonar/releases/latest/download/Sonar_x86_64.AppImage) |
+| Linux | ARM64 | [Sonar_aarch64.AppImage](https://github.com/thecatthatflies/sonar/releases/latest/download/Sonar_aarch64.AppImage) |
+| Windows | — | Coming soon |
+
+---
+
+## Quick Start
+
+### macOS
+
+1. Download `Sonar_aarch64.dmg` (Apple Silicon) or `Sonar_x64.dmg` (Intel)
+2. Open the `.dmg` and drag Sonar to `/Applications`
+3. Launch Sonar from your Applications folder
+4. If macOS blocks the app: **System Settings → Privacy & Security → Open Anyway**
+
+### Linux
+
+1. Download the `.AppImage` for your architecture
+2. Make it executable:
+   ```bash
+   chmod +x Sonar_x86_64.AppImage
+   ```
+3. Run it:
+   ```bash
+   ./Sonar_x86_64.AppImage
+   ```
+
+---
+
+## MCP Server
+
+Sonar ships a bundled MCP server that lets AI agents discover, inspect, and kill your local services.
+
+### Quick setup for Claude Code
+
+Add to `.mcp.json` in your project root:
+
+```json
+{
+  "mcpServers": {
+    "sonar": {
+      "type": "stdio",
+      "command": "/Applications/Sonar.app/Contents/MacOS/mcp-server-aarch64-apple-darwin",
+      "args": []
+    }
+  }
+}
+```
+
+### Quick setup for Claude Desktop
+
+Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "sonar": {
+      "command": "/Applications/Sonar.app/Contents/MacOS/mcp-server-aarch64-apple-darwin",
+      "args": []
+    }
+  }
+}
+```
+
+Restart your AI client after saving. The tools `list_running_ports`, `get_port_info`, and `kill_port` will appear automatically.
+
+**[→ Full MCP documentation](MCP.md)** · [Web docs](https://sonardocs.aiyan.tech/mcp)
+
+---
+
+## Documentation
+
+**Web docs:** [sonardocs.aiyan.tech](https://sonardocs.aiyan.tech)
+
+| Doc | Description |
+|---|---|
+| [INSTALLATION.md](INSTALLATION.md) | Step-by-step install guides for macOS and Linux |
+| [FEATURES.md](FEATURES.md) | Every feature in detail |
+| [MCP.md](MCP.md) | MCP server reference and integration examples |
+| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Common issues and fixes |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | How to build and contribute |
+
+---
+
+## Support
+
+- **Bug reports:** [GitHub Issues](https://github.com/thecatthatflies/sonar/issues/new?template=bug_report.md)
+- **Feature requests:** [GitHub Discussions](https://github.com/thecatthatflies/sonar/discussions/new?category=ideas)
+- **Source code:** [github.com/thecatthatflies/sonar](https://github.com/thecatthatflies/sonar)
+
+---
+
+## License
+
+[MIT](LICENSE)

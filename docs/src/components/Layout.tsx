@@ -49,7 +49,7 @@ export default function Layout() {
               ← sonar.aiyan.tech
             </a>
             <a
-              href="https://github.com/aiyan/sonar"
+              href="https://github.com/thecatthatflies/sonar"
               className="nav-gh"
               target="_blank"
               rel="noopener noreferrer"
@@ -141,7 +141,7 @@ export default function Layout() {
           />
           <footer className="doc-footer">
             <a
-              href={`https://github.com/aiyan/sonar/edit/main/docs/content/${slug}.md`}
+              href={`https://github.com/thecatthatflies/sonar/edit/main/docs/content/${slug}.md`}
               target="_blank"
               rel="noopener noreferrer"
               className="edit-link"
