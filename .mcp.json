@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "sonar": {
+      "type": "stdio",
+      "command": "./src-tauri/binaries/mcp-server-aarch64-apple-darwin",
+      "args": [],
+      "env": {}
+    }
+  }
+}

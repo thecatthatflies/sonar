@@ -1,0 +1,33 @@
+# Tauri
+target/
+dist/
+src-tauri/target/
+src-tauri/gen/
+
+
+# Node
+node_modules/
+*.pem
+.env.local
+.env.*.local
+dist-ssr/
+coverage/
+
+# Go
+*.o
+*.a
+*.so
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build
+pkg/
+
+# System
+.DS_Store
+Thumbs.db
