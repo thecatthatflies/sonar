@@ -2,7 +2,7 @@
 
 The browser built for developers.
 
-![Sonar Browser View](https://raw.githubusercontent.com/thecatthatflies/sonar/refs/heads/main/landing/public/screenshots/app-browser.png)
+![Sonar Browser View](https://sonar.aiyan.tech/screenshots/app-browser.png)
 
 ---
 
